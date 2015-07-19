@@ -158,10 +158,10 @@ void outputImageSectionHeaders(PIMAGE_SECTION_HEADER pImageSectionHeaders, int h
 {
   indent(indentLevel),printf("SECTION_TABLE:\n");
   indent(indentLevel+1),
-    printf("%-5s%-8s    %-8s    %-8s   %-8s   %-8s    %-8s %-8s %-8s %-8s %-8s\n\n",
-      "No", "Name", "[V addr", "V size]", "[R addr", "R size]", "[reloc", "num]", "[linenum", "num]", "Flag");
+    printf("%-5s%-8s    %-8s    %-8s   %-8s   %-8s   %-8s\n\n",
+      "No", "Name", "[V addr", "V size]", "[R addr", "R size]",  "Flag");
   indent(indentLevel+1),
-    printf("-----------------------------------------------------------------------------------------------------------\n");
+    printf("--------------------------------------------------------------------\n");
   int i;
   for(i=0; i<headerCount; ++i)
   {
@@ -173,10 +173,6 @@ void outputImageSectionHeaders(PIMAGE_SECTION_HEADER pImageSectionHeaders, int h
     printf("%8lXH  ", pImageSectionHeader->Misc.VirtualSize),
     printf("%8lXH  ", pImageSectionHeader->PointerToRawData),
     printf("%8lXH  ", pImageSectionHeader->SizeOfRawData),
-    printf("%8lXH  ", pImageSectionHeader->PointerToRelocations),
-    printf("%4XH   ", pImageSectionHeader->NumberOfRelocations),
-    printf("%8lXH ", pImageSectionHeader->PointerToLinenumbers),
-    printf("%4XH    ", pImageSectionHeader->NumberOfLinenumbers),
     printf("%8lXH  ", pImageSectionHeader->Characteristics),
     printf("\n");
   }
