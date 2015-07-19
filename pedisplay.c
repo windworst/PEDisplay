@@ -70,7 +70,7 @@ const char* dataDirectoryField(int fieldIndex)
 
 void outputImageDosHeader(PIMAGE_DOS_HEADER pImageDosHeader, int indentLevel)
 {
-  indent(indentLevel),printf("IMAGE_DOS_HEADER (SIZE: %d)\n",sizeof(*pImageDosHeader));
+  indent(indentLevel),printf("DOS HEADER (SIZE: %d)\n",sizeof(*pImageDosHeader));
   indent(indentLevel+1),printf("Magic: %04XH (%s %04XH)\n",
       pImageDosHeader->e_magic,
       (pImageDosHeader->e_magic==IMAGE_DOS_SIGNATURE?"==":"!="),
@@ -80,7 +80,7 @@ void outputImageDosHeader(PIMAGE_DOS_HEADER pImageDosHeader, int indentLevel)
 
 void outputImageNtHeaders(PIMAGE_NT_HEADERS pImageNtHeader, int indentLevel)
 {
-  indent(indentLevel),printf("IMAGE_NT_HEADER (SIZE: %d)\n", sizeof(*pImageNtHeader));
+  indent(indentLevel),printf("NT HEADER (SIZE: %d)\n", sizeof(*pImageNtHeader));
   indent(indentLevel+1),printf("SIGNATURE: %04lXH (%s %04XH)\n",
       (pImageNtHeader->Signature),
       (pImageNtHeader->Signature==IMAGE_NT_SIGNATURE?"==":"!="),
@@ -90,7 +90,7 @@ void outputImageNtHeaders(PIMAGE_NT_HEADERS pImageNtHeader, int indentLevel)
 
 void outputImageFileHeader(PIMAGE_FILE_HEADER pImageFileHeader, int indentLevel)
 {
-  indent(indentLevel),printf("IMAGE_FILE_HEADER (SIZE: %d)\n",sizeof(*pImageFileHeader));
+  indent(indentLevel),printf("FILE HEADER (SIZE: %d)\n",sizeof(*pImageFileHeader));
   indent(indentLevel+1),printf("Machine: %04XH\n",pImageFileHeader->Machine);
   indent(indentLevel+1),printf("NumberOfSections: %d\n",pImageFileHeader->NumberOfSections);
 
@@ -101,12 +101,13 @@ void outputImageFileHeader(PIMAGE_FILE_HEADER pImageFileHeader, int indentLevel)
   indent(indentLevel+1),printf("PointerToSymbolTable: %lXH\n", pImageFileHeader->PointerToSymbolTable);
   indent(indentLevel+1),printf("NumberOfSymbols: %ld\n", pImageFileHeader->NumberOfSymbols);
   indent(indentLevel+1),printf("SizeOfOptionalHeader: %d\n", pImageFileHeader->SizeOfOptionalHeader);
+  indent(indentLevel+1),printf("Characteristics: %04XH\n", pImageFileHeader->Characteristics);
   printf("\n");
 }
 
 void outputImageOptionalHeader(PIMAGE_OPTIONAL_HEADER pImageOptionalHeader, int indentLevel)
 {
-  indent(indentLevel),printf("OPTIONAL_HEADER (SIZE: %d)\n", sizeof(*pImageOptionalHeader));
+  indent(indentLevel),printf("OPTIONAL HEADER (SIZE: %d)\n", sizeof(*pImageOptionalHeader));
   indent(indentLevel+1),printf("Magic: %04XH\n", pImageOptionalHeader->Magic);
   indent(indentLevel+1),printf("LinkVersion: %d.%d\n",
       pImageOptionalHeader->MajorLinkerVersion,
@@ -160,7 +161,7 @@ void outputImageOptionalHeader(PIMAGE_OPTIONAL_HEADER pImageOptionalHeader, int 
 
 void outputImageSectionHeaders(PIMAGE_SECTION_HEADER pImageSectionHeaders, int headerCount, int indentLevel)
 {
-  indent(indentLevel),printf("SECTION_TABLE:\n");
+  indent(indentLevel),printf("SECTION TABLE:\n");
   indent(indentLevel+1),
     printf("%-5s%-8s    %-8s    %-8s   %-8s   %-8s   %-8s\n\n",
       "No", "Name", "[V addr", "V size]", "[R addr", "R size]",  "Flag");
