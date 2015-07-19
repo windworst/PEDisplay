@@ -71,8 +71,9 @@ const char* dataDirectoryField(int fieldIndex)
 void outputImageDosHeader(PIMAGE_DOS_HEADER pImageDosHeader, int indentLevel)
 {
   indent(indentLevel),printf("IMAGE_DOS_HEADER (SIZE: %d)\n",sizeof(*pImageDosHeader));
-  indent(indentLevel+1),printf("Magic: %04XH (require %04XH)\n",
+  indent(indentLevel+1),printf("Magic: %04XH (%s %04XH)\n",
       pImageDosHeader->e_magic,
+      (pImageDosHeader->e_magic==IMAGE_DOS_SIGNATURE?"==":"!="),
       IMAGE_DOS_SIGNATURE);
   printf("\n");
 }
@@ -80,7 +81,10 @@ void outputImageDosHeader(PIMAGE_DOS_HEADER pImageDosHeader, int indentLevel)
 void outputImageNtHeaders(PIMAGE_NT_HEADERS pImageNtHeader, int indentLevel)
 {
   indent(indentLevel),printf("IMAGE_NT_HEADER (SIZE: %d)\n", sizeof(*pImageNtHeader));
-  indent(indentLevel+1),printf("SIGNATURE: %04XH (require %04XH)\n", (unsigned int)(&pImageNtHeader->Signature), IMAGE_NT_SIGNATURE);
+  indent(indentLevel+1),printf("SIGNATURE: %04lXH (%s %04XH)\n",
+      (pImageNtHeader->Signature),
+      (pImageNtHeader->Signature==IMAGE_NT_SIGNATURE?"==":"!="),
+       IMAGE_NT_SIGNATURE);
   printf("\n");
 }
 
@@ -182,15 +186,23 @@ void loadPeFile(FILE* file)
 {
   //DOS HEAD
   IMAGE_DOS_HEADER imageDosHeader;
-  fread(&imageDosHeader, sizeof(imageDosHeader), 1, file);
+  int nread = fread(&imageDosHeader, sizeof(imageDosHeader), 1, file);
+  if(nread <=0 )
+  {
+    fprintf(stderr,"Read IMAGE_DOS_HEADER failed\n");
+    return;
+  }
+  outputImageDosHeader(&imageDosHeader, 0);
 
   //NT_HEADER
   IMAGE_NT_HEADERS imageNtHeader;
   fseek(file, imageDosHeader.e_lfanew, SEEK_SET);
-  fread(&imageNtHeader, sizeof(imageNtHeader), 1, file);
-
-  //OUTPUT
-  outputImageDosHeader(&imageDosHeader, 0);
+  nread = fread(&imageNtHeader, sizeof(imageNtHeader), 1, file);
+  if(nread <=0 )
+  {
+    fprintf(stderr,"Read IMAGE_NT_HEADER failed\n");
+    return;
+  }
   outputImageNtHeaders(&imageNtHeader, 0);
   outputImageFileHeader(&imageNtHeader.FileHeader, 1);
   outputImageOptionalHeader(&imageNtHeader.OptionalHeader, 1);
@@ -199,10 +211,18 @@ void loadPeFile(FILE* file)
   //SECTION_TABLE
   PIMAGE_SECTION_HEADER image_section_header_list =
     (PIMAGE_SECTION_HEADER)malloc(sizeof(IMAGE_SECTION_HEADER)*imageNtHeader.FileHeader.NumberOfSections);
-  fread(image_section_header_list, sizeof(IMAGE_SECTION_HEADER), imageNtHeader.FileHeader.NumberOfSections, file);
-  outputImageSectionHeaders(image_section_header_list, imageNtHeader.FileHeader.NumberOfSections, 0);
-  free(image_section_header_list);
-
+  nread = fread(image_section_header_list, sizeof(IMAGE_SECTION_HEADER), imageNtHeader.FileHeader.NumberOfSections, file);
+  if(nread<=0)
+  {
+    fprintf(stderr,"Read SECTION TABLE failed\n");
+    free(image_section_header_list);
+    return;
+  }
+  else
+  {
+    outputImageSectionHeaders(image_section_header_list, imageNtHeader.FileHeader.NumberOfSections, 0);
+    free(image_section_header_list);
+  }
 }
 
 void peDisplay(const char* file_path)
