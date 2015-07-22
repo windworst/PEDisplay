@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <time.h>
-#include <windows.h>
-#include <winnt.h>
+#include "PE.h"
 
 void indent(int n)
 {
@@ -68,7 +67,7 @@ const char* dataDirectoryField(int fieldIndex)
   return "Undefined";
 }
 
-void outputImageDosHeader(PIMAGE_DOS_HEADER pImageDosHeader, int indentLevel)
+void outputImageDosHeader(const IMAGE_DOS_HEADER* pImageDosHeader, int indentLevel)
 {
   indent(indentLevel),printf("DOS HEADER (SIZE: %d)\n",sizeof(*pImageDosHeader));
   indent(indentLevel+1),printf("Magic: %04XH (%s %04XH)\n",
@@ -78,17 +77,7 @@ void outputImageDosHeader(PIMAGE_DOS_HEADER pImageDosHeader, int indentLevel)
   printf("\n");
 }
 
-void outputImageNtHeaders(PIMAGE_NT_HEADERS pImageNtHeader, int indentLevel)
-{
-  indent(indentLevel),printf("NT HEADER (SIZE: %d)\n", sizeof(*pImageNtHeader));
-  indent(indentLevel+1),printf("SIGNATURE: %04lXH (%s %04XH)\n",
-      (pImageNtHeader->Signature),
-      (pImageNtHeader->Signature==IMAGE_NT_SIGNATURE?"==":"!="),
-       IMAGE_NT_SIGNATURE);
-  printf("\n");
-}
-
-void outputImageFileHeader(PIMAGE_FILE_HEADER pImageFileHeader, int indentLevel)
+void outputImageFileHeader(const IMAGE_FILE_HEADER* pImageFileHeader, int indentLevel)
 {
   indent(indentLevel),printf("FILE HEADER (SIZE: %d)\n",sizeof(*pImageFileHeader));
   indent(indentLevel+1),printf("Machine: %04XH\n",pImageFileHeader->Machine);
@@ -105,7 +94,7 @@ void outputImageFileHeader(PIMAGE_FILE_HEADER pImageFileHeader, int indentLevel)
   printf("\n");
 }
 
-void outputImageOptionalHeader(PIMAGE_OPTIONAL_HEADER pImageOptionalHeader, int indentLevel)
+void outputImageOptionalHeader(const IMAGE_OPTIONAL_HEADER* pImageOptionalHeader, int indentLevel)
 {
   indent(indentLevel),printf("OPTIONAL HEADER (SIZE: %d)\n", sizeof(*pImageOptionalHeader));
   indent(indentLevel+1),printf("Magic: %04XH\n", pImageOptionalHeader->Magic);
@@ -152,14 +141,28 @@ void outputImageOptionalHeader(PIMAGE_OPTIONAL_HEADER pImageOptionalHeader, int 
     int i;
     for(i=0;i<pImageOptionalHeader->NumberOfRvaAndSizes;++i)
     {
-      PIMAGE_DATA_DIRECTORY p_image_data_directory = pImageOptionalHeader->DataDirectory + i;
+      const IMAGE_DATA_DIRECTORY* p_image_data_directory = pImageOptionalHeader->DataDirectory + i;
       indent(indentLevel+2),printf("%08lxH  %08lxH   %s\n", p_image_data_directory->VirtualAddress, p_image_data_directory->Size, dataDirectoryField(i));
     }
   }
   printf("\n");
 }
 
-void outputImageSectionHeaders(PIMAGE_SECTION_HEADER pImageSectionHeaders, int headerCount, int indentLevel)
+void outputImageNtHeaders(const IMAGE_NT_HEADERS* pImageNtHeader, int indentLevel)
+{
+  indent(indentLevel),printf("NT HEADER (SIZE: %d)\n", sizeof(*pImageNtHeader));
+  indent(indentLevel+1),printf("SIGNATURE: %04lXH (%s %04XH)\n",
+      (pImageNtHeader->Signature),
+      (pImageNtHeader->Signature==IMAGE_NT_SIGNATURE?"==":"!="),
+       IMAGE_NT_SIGNATURE);
+  printf("\n");
+
+  outputImageFileHeader(&pImageNtHeader->FileHeader, indentLevel+1);
+  outputImageOptionalHeader(&pImageNtHeader->OptionalHeader, indentLevel+1);
+}
+
+
+void outputImageSectionHeaders(const IMAGE_SECTION_HEADER* pImageSectionHeaders, int headerCount, int indentLevel)
 {
   indent(indentLevel),printf("SECTION TABLE:\n");
   indent(indentLevel+1),
@@ -170,7 +173,7 @@ void outputImageSectionHeaders(PIMAGE_SECTION_HEADER pImageSectionHeaders, int h
   int i;
   for(i=0; i<headerCount; ++i)
   {
-    PIMAGE_SECTION_HEADER pImageSectionHeader = pImageSectionHeaders+i;
+    const IMAGE_SECTION_HEADER* pImageSectionHeader = pImageSectionHeaders+i;
     indent(indentLevel+1),
     printf("%-5d",i+1),
     printf("%-*.*s  ",IMAGE_SIZEOF_SHORT_NAME, IMAGE_SIZEOF_SHORT_NAME, pImageSectionHeader->Name),
@@ -183,59 +186,34 @@ void outputImageSectionHeaders(PIMAGE_SECTION_HEADER pImageSectionHeaders, int h
   }
 }
 
-void loadPeFile(FILE* file)
+void outputPe(const PE& pe)
 {
   //DOS HEAD
-  IMAGE_DOS_HEADER imageDosHeader;
-  int nread = fread(&imageDosHeader, sizeof(imageDosHeader), 1, file);
-  if(nread <=0 )
-  {
-    fprintf(stderr,"Read IMAGE_DOS_HEADER failed\n");
-    return;
-  }
-  outputImageDosHeader(&imageDosHeader, 0);
+  outputImageDosHeader(pe.getImageDosHeader(), 0);
 
   //NT_HEADER
-  IMAGE_NT_HEADERS imageNtHeader;
-  fseek(file, imageDosHeader.e_lfanew, SEEK_SET);
-  nread = fread(&imageNtHeader, sizeof(imageNtHeader), 1, file);
-  if(nread <=0 )
-  {
-    fprintf(stderr,"Read IMAGE_NT_HEADER failed\n");
-    return;
-  }
-  outputImageNtHeaders(&imageNtHeader, 0);
-  outputImageFileHeader(&imageNtHeader.FileHeader, 1);
-  outputImageOptionalHeader(&imageNtHeader.OptionalHeader, 1);
-
+  outputImageNtHeaders(pe.getImageNtHeader(), 0);
 
   //SECTION_TABLE
-  PIMAGE_SECTION_HEADER image_section_header_list =
-    (PIMAGE_SECTION_HEADER)malloc(sizeof(IMAGE_SECTION_HEADER)*imageNtHeader.FileHeader.NumberOfSections);
-  nread = fread(image_section_header_list, sizeof(IMAGE_SECTION_HEADER), imageNtHeader.FileHeader.NumberOfSections, file);
-  if(nread<=0)
-  {
-    fprintf(stderr,"Read SECTION TABLE failed\n");
-    free(image_section_header_list);
-    return;
-  }
-  else
-  {
-    outputImageSectionHeaders(image_section_header_list, imageNtHeader.FileHeader.NumberOfSections, 0);
-    free(image_section_header_list);
-  }
+  outputImageSectionHeaders(pe.getSectionList(), pe.getSectionCount(), 0);
 }
 
 void peDisplay(const char* file_path)
 {
-  FILE* file = fopen(file_path,"rb");
-  if(file==NULL)
+  PE pe(file_path);
+  int status = pe.status();
+  if(status == PE::SUCCESS)
+  {
+    outputPe(pe);
+  }
+  else if(status == PE::READ_FAILED )
   {
     fprintf(stderr,"open file %s failed\n",file_path);
-    return;
   }
-  loadPeFile(file);
-  fclose(file);
+  else
+  {
+    fprintf(stderr, "PE struct error\n");
+  }
 }
 
 int main(int argc, char** argv)
