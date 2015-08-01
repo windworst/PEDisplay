@@ -10,10 +10,11 @@ using std::vector;
 class PE
 {
 public:
-  int loadStatus;
+  vector<BYTE> peHeaderData;
   enum LOAD_STATUS{ SUCCESS=0,READ_FAILED,PE_ERROR };
   PE(const char* path)
   {
+    initPePointer();
     loadStatus = READ_FAILED;
     FILE* f = fopen(path, "rb");
     if(f!=NULL)
@@ -22,35 +23,49 @@ public:
       fclose(f);
     }
   }
+  PE(FILE* file)
+  {
+    initPePointer();
+    loadStatus = READ_FAILED;
+    if(file!=NULL)
+    {
+      loadStatus = loadPeFile(file);
+    }
+  }
   int status()
   {
     return loadStatus;
   }
-  const IMAGE_DOS_HEADER* getImageDosHeader() const
-  {
-    return &imageDosHeader;
-  }
-  const IMAGE_NT_HEADERS* getImageNtHeader() const
-  {
-    return &imageNtHeader;
-  }
-  int getSectionCount() const
-  {
-    return imageSectionHeaderList.size();
-  }
-  const IMAGE_SECTION_HEADER* getSectionList() const
-  {
-    return imageSectionHeaderList.data();
-  }
-private:
-  PE(const PE&);
 
-  IMAGE_DOS_HEADER imageDosHeader;
-  IMAGE_NT_HEADERS imageNtHeader;
-  vector<IMAGE_SECTION_HEADER> imageSectionHeaderList;
+  IMAGE_DOS_HEADER* getImageDosHeader()
+  {
+    return (IMAGE_DOS_HEADER*)peHeaderData.data();
+  }
+
+  IMAGE_NT_HEADERS* getImageNtHeader()
+  {
+    return (IMAGE_NT_HEADERS*)(peHeaderData.data() + imageNtHeaderOffset);
+  }
+
+  IMAGE_SECTION_HEADER* getImageSectionHeaderTable()
+  {
+    return (IMAGE_SECTION_HEADER*)(peHeaderData.data() + imageSectionHeaderTableOffset);
+  }
+
+private:
+  DWORD imageNtHeaderOffset;
+  DWORD imageSectionHeaderTableOffset;
+  int loadStatus;
+  void initPePointer()
+  {
+    imageNtHeaderOffset = 0;
+    imageSectionHeaderTableOffset = 0;
+  }
   int loadPeFile(FILE* file)
   {
+    initPePointer();
     //DOS HEAD
+    IMAGE_DOS_HEADER imageDosHeader;
     int nread = fread(&imageDosHeader, sizeof(imageDosHeader), 1, file);
     if(nread <=0 )
     {
@@ -58,6 +73,7 @@ private:
     }
 
     //NT_HEADER
+    IMAGE_NT_HEADERS imageNtHeader;
     fseek(file, imageDosHeader.e_lfanew, SEEK_SET);
     nread = fread(&imageNtHeader, sizeof(imageNtHeader), 1, file);
     if(nread <=0 )
@@ -65,14 +81,16 @@ private:
       return PE_ERROR;
     }
 
-    //SECTION_TABLE
-    imageSectionHeaderList.resize(imageNtHeader.FileHeader.NumberOfSections);
-    nread = fread(imageSectionHeaderList.data(), sizeof(IMAGE_SECTION_HEADER),
-        imageNtHeader.FileHeader.NumberOfSections, file);
-    if(nread<=0)
+    //Read PE Header
+    rewind(file);
+    peHeaderData.resize(imageNtHeader.OptionalHeader.SizeOfHeaders);
+    nread = fread(peHeaderData.data(),peHeaderData.size(), 1, file);
+    if(nread <=0 )
     {
       return PE_ERROR;
     }
+    imageNtHeaderOffset = imageDosHeader.e_lfanew;
+    imageSectionHeaderTableOffset =  ( imageNtHeaderOffset + 4 + sizeof(imageNtHeader.FileHeader) + imageNtHeader.FileHeader.SizeOfOptionalHeader);
     return SUCCESS;
   }
 };

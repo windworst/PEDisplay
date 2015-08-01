@@ -186,7 +186,7 @@ void outputImageSectionHeaders(const IMAGE_SECTION_HEADER* pImageSectionHeaders,
   }
 }
 
-void outputPe(const PE& pe)
+void outputPe(PE& pe)
 {
   //DOS HEAD
   outputImageDosHeader(pe.getImageDosHeader(), 0);
@@ -195,7 +195,7 @@ void outputPe(const PE& pe)
   outputImageNtHeaders(pe.getImageNtHeader(), 0);
 
   //SECTION_TABLE
-  outputImageSectionHeaders(pe.getSectionList(), pe.getSectionCount(), 0);
+  outputImageSectionHeaders(pe.getImageSectionHeaderTable(), pe.getImageNtHeader()->FileHeader.NumberOfSections, 0);
 }
 
 void peDisplay(const char* file_path)
@@ -212,7 +212,7 @@ void peDisplay(const char* file_path)
   }
   else
   {
-    fprintf(stderr, "PE struct error\n");
+    fprintf(stderr, "PE struct error, status: %d\n",status);
   }
 }
 
